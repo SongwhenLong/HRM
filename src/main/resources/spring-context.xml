@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/tx
+           http://www.springframework.org/schema/tx/spring-tx.xsd
+           http://www.springframework.org/schema/aop
+           http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+        <!--  引入配置文件  -->
+        <context:property-placeholder location="classpath:database.properties"></context:property-placeholder>
+
+        <!--  包扫描路径  -->
+        <!-- 告知Spring
+         唯独不扫描@Controller注解的类 -->
+        <context:component-scan base-package="com.hrm" use-default-filters="true">
+            <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+        </context:component-scan>
+
+        <!--  数据源   -->
+        <bean class="com.alibaba.druid.pool.DruidDataSource" id="dataSource">
+            <property name="driverClassName" value="${jdbc.driver}"></property>
+            <property name="url" value="${jdbc.url}"></property>
+            <property name="username" value="${jdbc.username}"></property>
+            <property name="password" value="${jdbc.password}"></property>
+        </bean>
+
+        <!--  会话工厂   -->
+        <bean class="org.mybatis.spring.SqlSessionFactoryBean" id="sqlSessionFactory">
+            <property name="dataSource" ref="dataSource"></property>
+        </bean>
+
+        <!--  包扫描路径   -->
+        <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer" id="mapperScannerConfigurer">
+            <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property>
+            <property name="basePackage" value="com.hrm.dao"></property>
+        </bean>
+
+        <!--  注册业务Bean   -->
+<!--          <bean class="com.hrm.service.impl.EmployeeService" id="employeeService" autowire="byName"></bean>-->
+
+        <!-- 1. 引入一个事务管理器，其中依赖DataSource,借以获得连接，进而控制事务逻辑 -->
+        <bean id="tx" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+            <property name="dataSource" ref="dataSource"></property>
+        </bean>
+
+        <!--  通知  -->
+        <tx:advice id="txManager" transaction-manager="tx">
+            <tx:attributes>
+                <!--<tx:
+                    method name="insertUser"
+                    rollback-for="Exception"
+                    isolation="DEFAULT"
+                    propagation="REQUIRED"
+                    read-only="false"/>
+                -->
+                <!-- 以Account结尾的方法，切入此方法时，采用对应事务实行-->
+                <tx:method
+                        name="*employee"
+                        rollback-for="Exception"
+                        read-only="false"
+                        propagation="REQUIRED"
+                        isolation="DEFAULT"/>
+
+                <!-- 以search开头的方法，切入此方法时，采用对应事务实行 -->
+                <tx:method
+                        name="search*"
+                        propagation="SUPPORTS"
+                        read-only="true"
+                        isolation="DEFAULT"
+                        rollback-for="Exception"/>
+                <!-- 剩余所有方法 -->
+                <tx:method name="*"/>
+            </tx:attributes>
+        </tx:advice>
+
+        <!--  通知绑定方法  -->
+        <aop:config>
+            <aop:pointcut id="transfer" expression="execution(* com.hrm.service.impl.*.*(..))"/>
+
+            <aop:advisor advice-ref="txManager" pointcut-ref="transfer"></aop:advisor>
+        </aop:config>
+</beans>
